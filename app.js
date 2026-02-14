@@ -14,11 +14,12 @@
   const clearBtn = document.getElementById("clearBtn");
   const endBtn = document.getElementById("endBtn");
 
-  const selectedText = document.getElementById("selectedText");
-  const countdownText = document.getElementById("countdownText");
+  const selectedText = document.getElementById("hudSelected");
+  const countdownText = document.getElementById("hudCountdown");
+  const setupControls = document.getElementById("setupControls");
+
   const scoreText = document.getElementById("scoreText");
   const resultText = document.getElementById("resultText");
-  const resultMeta = document.getElementById("resultMeta");
 
   const howToModal = document.getElementById("howToModal");
   const closeHowToBtn = document.getElementById("closeHowToBtn");
@@ -143,8 +144,16 @@
     canvas.width = width;
     canvas.height = height;
     pivotX = width * 0.5;
-    pivotY = height * 0.25;
+    updatePivotForState();
     recalcGrid();
+  }
+
+  function updatePivotForState() {
+    if (gameState === GameState.TITLE) {
+      pivotY = height * 0.16;
+    } else {
+      pivotY = height * 0.25;
+    }
   }
 
   function recalcGrid() {
@@ -297,13 +306,6 @@
 
   function updateSetupTexts() {
     selectedText.textContent = `Selected: ${selectedCells.size}`;
-
-    if (gameState === GameState.RUN) {
-      countdownText.textContent = `Time: ${remainingSec.toFixed(2)}s`;
-    } else {
-      countdownText.textContent = `Time: ${roundDurationSec.toFixed(2)}s`;
-    }
-
     startBtn.disabled = gameState !== GameState.SETUP || selectedCells.size === 0;
   }
 
@@ -314,6 +316,11 @@
 
     canvas.classList.toggle("title-bg", gameState === GameState.TITLE);
 
+    setupControls.classList.toggle("hidden", gameState !== GameState.SETUP);
+    selectedText.classList.toggle("hidden", gameState !== GameState.SETUP);
+    countdownText.classList.toggle("hidden", gameState !== GameState.RUN);
+
+    updatePivotForState();
     updateSetupTexts();
   }
 
@@ -339,6 +346,7 @@
     lastTs = 0;
     runStartTs = 0;
     remainingSec = roundDurationSec;
+    countdownText.textContent = roundDurationSec.toFixed(2);
 
     setScreenVisibility();
   }
@@ -407,12 +415,6 @@
       resultText.className = "bad";
     }
 
-    if (correctCell.inside) {
-      resultMeta.textContent = `正解セル: row ${correctCell.row}, col ${correctCell.col} / Selected: ${selectedCells.size}`;
-    } else {
-      resultMeta.textContent = `正解セル: グリッド外 / Selected: ${selectedCells.size}`;
-    }
-
     remainingSec = 0;
     gameState = GameState.RESULT;
     beginScoreAnimation(ts);
@@ -470,6 +472,13 @@
       pivotColor = "rgba(84, 102, 138, 0.74)";
       bob1Color = "rgba(108, 169, 219, 0.72)";
       bob2Color = "rgba(129, 170, 214, 0.74)";
+    }
+
+    if (styleMode === "game") {
+      rodColor = "rgba(55,65,81,0.55)";
+      pivotColor = "rgba(55,65,81,0.7)";
+      bob1Color = "rgba(55,65,81,0.7)";
+      bob2Color = "#1ea97c";
     }
 
     ctx.beginPath();
@@ -631,7 +640,7 @@
       if (gameState === GameState.RUN) {
         const elapsed = (ts - runStartTs) / 1000;
         remainingSec = Math.max(0, roundDurationSec - elapsed);
-        countdownText.textContent = `Time: ${remainingSec.toFixed(2)}s`;
+        countdownText.textContent = remainingSec.toFixed(2);
 
         if (elapsed >= roundDurationSec) {
           finishRound(ts);
@@ -647,6 +656,7 @@
 
   function onResize() {
     setupCanvasSize();
+    updatePivotForState();
   }
 
   playBtn.addEventListener("click", () => {
@@ -682,6 +692,7 @@
     gameState = GameState.RUN;
     runStartTs = performance.now();
     remainingSec = roundDurationSec;
+    countdownText.textContent = remainingSec.toFixed(2);
     acc = 0;
     setScreenVisibility();
   });
