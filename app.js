@@ -9,7 +9,6 @@
   const resultScreen = document.getElementById("resultScreen");
 
   const playBtn = document.getElementById("playBtn");
-  const howToBtn = document.getElementById("howToBtn");
   const startBtn = document.getElementById("startBtn");
   const clearBtn = document.getElementById("clearBtn");
   const endBtn = document.getElementById("endBtn");
@@ -21,15 +20,15 @@
   const scoreText = document.getElementById("scoreText");
   const resultText = document.getElementById("resultText");
 
-  const howToModal = document.getElementById("howToModal");
-  const closeHowToBtn = document.getElementById("closeHowToBtn");
-
   const GameState = {
     TITLE: "TITLE",
     SETUP: "SETUP",
     RUN: "RUN",
     RESULT: "RESULT",
   };
+
+  const GAME_W = 1000;
+  const GAME_H = 1600;
 
   const m1 = 1;
   const m2 = 1;
@@ -40,21 +39,26 @@
   const maxSubsteps = 8;
   const roundDurationSec = 5;
 
-  const N = 50;
+  const N = 20;
   const bobRadius1 = 6;
-  const bobRadius2 = 7;
+  const bobRadius2 = 15;
 
   const titleTimeScale = 0.6;
   const scoreAnimDurationMs = 780;
 
-  let width = 0;
-  let height = 0;
-  let pivotX = 0;
-  let pivotY = 0;
+  let cssW = 0;
+  let cssH = 0;
+  let dpr = 1;
+  let viewScale = 1;
+  let viewOffsetX = 0;
+  let viewOffsetY = 0;
 
-  let cellSize = 1;
-  let M = 1;
-  let gridHeight = 1;
+  let pivotX = GAME_W * 0.5;
+  let pivotY = GAME_H * 0.25;
+
+  let cellSize = GAME_W / N;
+  let M = Math.max(1, Math.floor(GAME_H / cellSize));
+  let gridHeight = M * cellSize;
 
   let gameState = GameState.TITLE;
 
@@ -138,45 +142,63 @@
     return `${row},${col}`;
   }
 
-  function setupCanvasSize() {
-    width = window.innerWidth;
-    height = window.innerHeight;
-    canvas.width = width;
-    canvas.height = height;
-    pivotX = width * 0.5;
-    updatePivotForState();
-    recalcGrid();
-  }
+  function updateViewTransform() {
+    cssW = window.innerWidth;
+    cssH = window.innerHeight;
+    dpr = Math.max(1, window.devicePixelRatio || 1);
 
-  function updatePivotForState() {
-    if (gameState === GameState.TITLE) {
-      pivotY = height * 0.16;
-    } else {
-      pivotY = height * 0.25;
-    }
-  }
+    canvas.style.width = `${cssW}px`;
+    canvas.style.height = `${cssH}px`;
+    canvas.width = Math.max(1, Math.floor(cssW * dpr));
+    canvas.height = Math.max(1, Math.floor(cssH * dpr));
 
-  function recalcGrid() {
-    cellSize = width / N;
-    M = Math.max(1, Math.floor(height / cellSize));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    viewScale = Math.min(cssW / GAME_W, cssH / GAME_H);
+    viewOffsetX = (cssW - GAME_W * viewScale) * 0.5;
+    viewOffsetY = (cssH - GAME_H * viewScale) * 0.5;
+
+    document.documentElement.style.setProperty("--dpr", String(dpr));
+
+    cellSize = GAME_W / N;
+    M = Math.max(1, Math.floor(GAME_H / cellSize));
     gridHeight = M * cellSize;
 
-    if (selectedCells.size > 0) {
-      selectedCells = new Set(
-        Array.from(selectedCells).filter((key) => {
-          const [rowStr, colStr] = key.split(",");
-          const row = Number.parseInt(rowStr, 10);
-          const col = Number.parseInt(colStr, 10);
-          return row >= 0 && row < M && col >= 0 && col < N;
-        })
-      );
-    }
+    pivotX = GAME_W * 0.5;
+    updatePivotForState();
 
     updateSetupTexts();
   }
 
+  function updatePivotForState() {
+    if (gameState === GameState.TITLE) {
+      pivotY = GAME_H * 0.16;
+    } else {
+      pivotY = GAME_H * 0.25;
+    }
+  }
+
+  function beginWorldDraw() {
+    ctx.save();
+    ctx.translate(viewOffsetX, viewOffsetY);
+    ctx.scale(viewScale, viewScale);
+  }
+
+  function endWorldDraw() {
+    ctx.restore();
+  }
+
+  function screenToWorld(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const sx = clientX - rect.left;
+    const sy = clientY - rect.top;
+    const wx = (sx - viewOffsetX) / viewScale;
+    const wy = (sy - viewOffsetY) / viewScale;
+    return { x: wx, y: wy };
+  }
+
   function makeRandomInitialState() {
-    const minDim = Math.min(width, height);
+    const minDim = Math.min(GAME_W, GAME_H);
     const minL = 0.18 * minDim;
     const maxL = 0.32 * minDim;
 
@@ -324,10 +346,6 @@
     updateSetupTexts();
   }
 
-  function showHowTo(open) {
-    howToModal.classList.toggle("hidden", !open);
-  }
-
   function startNewSetup() {
     gameState = GameState.SETUP;
     randomizePendulumState();
@@ -446,7 +464,7 @@
     for (let r = 0; r <= M; r += 1) {
       const y = r * cellSize;
       ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
+      ctx.lineTo(GAME_W, y);
     }
     ctx.stroke();
 
@@ -506,10 +524,13 @@
   }
 
   function draw() {
-    ctx.clearRect(0, 0, width, height);
+    ctx.clearRect(0, 0, cssW, cssH);
+
+    beginWorldDraw();
 
     if (gameState === GameState.TITLE) {
       drawPendulum("title");
+      endWorldDraw();
       return;
     }
 
@@ -517,14 +538,8 @@
       drawGrid();
       drawPendulum("game");
     }
-  }
 
-  function toCanvasPoint(e) {
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    };
+    endWorldDraw();
   }
 
   function clearPointerSelectionState() {
@@ -540,7 +555,7 @@
       return;
     }
 
-    const pt = toCanvasPoint(e);
+    const pt = screenToWorld(e.clientX, e.clientY);
     const cell = getCellFromPoint(pt.x, pt.y);
     if (!cell) {
       return;
@@ -559,7 +574,7 @@
       return;
     }
 
-    const pt = toCanvasPoint(e);
+    const pt = screenToWorld(e.clientX, e.clientY);
     const cell = getCellFromPoint(pt.x, pt.y);
     if (!cell) {
       return;
@@ -655,26 +670,12 @@
   }
 
   function onResize() {
-    setupCanvasSize();
+    updateViewTransform();
     updatePivotForState();
   }
 
   playBtn.addEventListener("click", () => {
     startNewSetup();
-  });
-
-  howToBtn.addEventListener("click", () => {
-    showHowTo(true);
-  });
-
-  closeHowToBtn.addEventListener("click", () => {
-    showHowTo(false);
-  });
-
-  howToModal.addEventListener("click", (e) => {
-    if (e.target === howToModal) {
-      showHowTo(false);
-    }
   });
 
   clearBtn.addEventListener("click", () => {
@@ -707,8 +708,9 @@
   canvas.addEventListener("pointercancel", onPointerUpOrCancel);
 
   window.addEventListener("resize", onResize);
+  window.addEventListener("orientationchange", onResize);
 
-  setupCanvasSize();
+  updateViewTransform();
   seed = parseSeed();
   rand = mulberry32(seed);
   initialState = makeRandomInitialState();
