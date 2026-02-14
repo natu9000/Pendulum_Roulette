@@ -1,0 +1,306 @@
+﻿<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pendulum Roulette</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f7f9fc;
+      --bg-soft: #ffffff;
+      --canvas-top: #fbfcff;
+      --canvas-bottom: #f4f7fc;
+      --panel: #ffffff;
+      --panel-border: #e5eaf3;
+      --text: #252b38;
+      --muted: #6b7280;
+      --accent: #4f86ff;
+      --accent-soft: rgba(79, 134, 255, 0.14);
+      --mint: #4fbf9f;
+      --grid-line: rgba(94, 114, 148, 0.16);
+      --grid-fill: rgba(79, 134, 255, 0.2);
+      --hit: #1ea97c;
+      --miss: #d84e74;
+      --shadow-lg: 0 22px 42px rgba(30, 58, 112, 0.14);
+      --shadow-md: 0 12px 24px rgba(30, 58, 112, 0.12);
+      --shadow-sm: 0 8px 16px rgba(30, 58, 112, 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: linear-gradient(180deg, var(--bg) 0%, var(--bg-soft) 100%);
+      color: var(--text);
+      font-family: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    #canvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      touch-action: none;
+      pointer-events: auto;
+      background: linear-gradient(180deg, var(--canvas-top) 0%, var(--canvas-bottom) 100%);
+      transition: filter 0.25s ease, opacity 0.25s ease;
+    }
+
+    #canvas.title-bg {
+      filter: blur(8px);
+      opacity: 0.22;
+      pointer-events: none;
+    }
+
+    .screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .panel {
+      pointer-events: auto;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 20px;
+      padding: 24px;
+      min-width: min(92vw, 380px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    h1,
+    h2,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      font-size: clamp(34px, 7vw, 56px);
+      line-height: 1.08;
+      letter-spacing: 0.5px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    h2 {
+      margin-bottom: 10px;
+      font-size: 30px;
+      line-height: 1.15;
+      letter-spacing: 0.2px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .sub {
+      margin-bottom: 16px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.45;
+      font-weight: 500;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    button {
+      border: 1px solid #d7dfed;
+      background: linear-gradient(180deg, #ffffff 0%, #f5f8ff 100%);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.1px;
+      cursor: pointer;
+      transition: transform 0.14s ease, box-shadow 0.14s ease, background 0.14s ease;
+      box-shadow: var(--shadow-sm);
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+      background: linear-gradient(180deg, #ffffff 0%, #edf3ff 100%);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    #titleScreen .panel {
+      text-align: center;
+      min-width: min(92vw, 640px);
+      padding: 38px 34px;
+    }
+
+    #setupScreen {
+      justify-content: flex-start;
+      align-items: flex-start;
+      padding: 14px;
+    }
+
+    #setupPanel {
+      min-width: min(92vw, 380px);
+      padding: 18px;
+      box-shadow: var(--shadow-sm);
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(2px);
+    }
+
+    .meta {
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    #selectedText,
+    #countdownText {
+      margin-top: 2px;
+    }
+
+    #resultScreen .panel {
+      min-width: min(92vw, 480px);
+      padding: 30px 28px;
+    }
+
+    #scoreText {
+      margin: 8px 0 10px;
+      font-size: clamp(36px, 8vw, 64px);
+      font-weight: 800;
+      letter-spacing: 0.4px;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    #resultText {
+      margin-bottom: 10px;
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    #resultMeta {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+      font-weight: 500;
+    }
+
+    #howToModal {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(204, 214, 230, 0.38);
+      z-index: 20;
+    }
+
+    #howToModal .panel {
+      max-width: min(92vw, 560px);
+    }
+
+    #howToModal ol {
+      margin: 0;
+      padding-left: 22px;
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    .good {
+      color: var(--hit);
+    }
+
+    .bad {
+      color: var(--miss);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <section id="titleScreen" class="screen">
+    <div class="panel">
+      <h1>Pendulum Roulette</h1>
+      <p class="sub">Predict the swing 5 seconds ahead.</p>
+      <div class="row" style="justify-content:center;">
+        <button id="playBtn" type="button">Play</button>
+        <button id="howToBtn" type="button">遊び方</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="setupScreen" class="screen hidden">
+    <div id="setupPanel" class="panel">
+      <h2>Prediction</h2>
+      <p class="meta" id="selectedText">Selected: 0</p>
+      <p class="meta" id="countdownText">Time: 5.00s</p>
+      <div class="row">
+        <button id="startBtn" type="button" disabled>Start</button>
+        <button id="clearBtn" type="button">Clear</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="resultScreen" class="screen hidden">
+    <div class="panel">
+      <h2>Result</h2>
+      <p id="scoreText">スコア 0</p>
+      <p id="resultText">-</p>
+      <p class="meta" id="resultMeta"></p>
+      <div class="row">
+        <button id="endBtn" type="button">終了</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="howToModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="howToTitle">
+    <div class="panel">
+      <h2 id="howToTitle">遊び方</h2>
+      <ol>
+        <li>Playでスタートすると、振り子と予測グリッドが表示されます。</li>
+        <li>マスをクリックでON/OFF、ドラッグで通過マスをONにできます。</li>
+        <li>Startで5秒間シミュレーション後、先端が入ったマスで判定します。</li>
+        <li>選択数が少ないほど、的中時のスコアが高くなります。</li>
+      </ol>
+      <div class="row">
+        <button id="closeHowToBtn" type="button">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
